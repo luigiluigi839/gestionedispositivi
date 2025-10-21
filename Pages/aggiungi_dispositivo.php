@@ -28,7 +28,8 @@ try {
     $stati = $pdo->query("SELECT ID, Nome FROM Stati ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
     $proprieta = $pdo->query("SELECT ID, Nome FROM Proprieta ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
     $marche = $pdo->query("SELECT ID, Nome FROM Marche ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
-    $modelli = $pdo->query("SELECT mo.ID, mo.Nome, mo.MarcaID, t.Nome AS TipologiaNome 
+    // MODIFICA: Aggiunto Codice_Modello alla query
+    $modelli = $pdo->query("SELECT mo.ID, mo.Nome, mo.Codice_Modello, mo.MarcaID, t.Nome AS TipologiaNome 
                             FROM Modelli mo 
                             LEFT JOIN Tipologie t ON mo.Tipologia = t.ID 
                             ORDER BY mo.Nome")->fetchAll(PDO::FETCH_ASSOC);
@@ -85,7 +86,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nuovo_dispositivo_id = $pdo->lastInsertId();
             $success_message = 'Dispositivo aggiunto con successo!';
 
-            // MODIFICATO: Inserisce il reminder solo se i dati sono presenti E l'utente ha il permesso
             if ((in_array('inserisci_reminder', $user_permessi) || $is_superuser) && !empty($tipo_scadenza) && !empty($data_scadenza)) {
                 $sql_scadenza = "INSERT INTO Scadenze_Reminder (Dispositivo_Seriale, Data_Scadenza, Tipo_Scadenza, Note, Utente_Creazione_ID)
                                  VALUES (:dispositivo, :data_scadenza, :tipo, :note, :utente)";
@@ -125,6 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="../CSS/_base.css">
     <link rel="stylesheet" href="../CSS/_forms.css">
     <link rel="stylesheet" href="../CSS/_cards.css">
+    <link rel="stylesheet" href="../CSS/_search.css">
 </head>
 <body>
 
@@ -159,10 +160,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </select>
             </div>
             <div class="form-group">
-                <label for="modello_id">Modello</label>
-                <select id="modello_id" name="modello_id" required>
-                    <option value="">Seleziona prima una marca</option>
-                </select>
+                <label for="search_modello">Modello</label>
+                <input type="text" id="search_modello" placeholder="Cerca per codice o nome..." required autocomplete="off" disabled>
+                <input type="hidden" id="modello_id" name="modello_id">
+                <div id="modello_search_results" class="search-results-list hidden"></div>
             </div>
 
             <div class="form-group">
@@ -287,32 +288,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     document.addEventListener('DOMContentLoaded', function() {
         const modelliData = <?= json_encode($modelli) ?>;
         const marcaSelect = document.getElementById('marca_id');
-        const modelloSelect = document.getElementById('modello_id');
-        const previousModelloId = '<?= htmlspecialchars($_POST['modello_id'] ?? '') ?>';
+        const searchModelloInput = document.getElementById('search_modello');
+        const hiddenModelloInput = document.getElementById('modello_id');
+        const resultsContainer = document.getElementById('modello_search_results');
+        
         const datiTecniciContainer = document.getElementById('dati-tecnici-container');
         const cccContainer = document.getElementById('ccc-container');
 
-        function updateModelli() {
-            const selectedMarcaId = marcaSelect.value;
-            modelloSelect.innerHTML = '<option value="">Seleziona un modello</option>';
-
-            if (selectedMarcaId) {
-                const filteredModelli = modelliData.filter(modello => modello.MarcaID == selectedMarcaId);
-                filteredModelli.forEach(modello => {
-                    const option = document.createElement('option');
-                    option.value = modello.ID;
-                    option.textContent = modello.Nome;
-                    if (modello.ID == previousModelloId) {
-                        option.selected = true;
-                    }
-                    modelloSelect.appendChild(option);
-                });
+        function toggleModelloSearch() {
+            if (marcaSelect.value) {
+                searchModelloInput.disabled = false;
+                searchModelloInput.placeholder = 'Cerca per codice o nome...';
+            } else {
+                searchModelloInput.disabled = true;
+                searchModelloInput.placeholder = 'Seleziona prima una marca';
+                searchModelloInput.value = '';
+                hiddenModelloInput.value = '';
+                resultsContainer.classList.add('hidden');
+                checkFormVisibility();
             }
-            checkFormVisibility();
         }
+        
+        marcaSelect.addEventListener('change', function() {
+            // Quando la marca cambia, resetta la selezione del modello
+            searchModelloInput.value = '';
+            hiddenModelloInput.value = '';
+            resultsContainer.classList.add('hidden');
+            toggleModelloSearch();
+            checkFormVisibility();
+        });
 
+        searchModelloInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            const selectedMarcaId = marcaSelect.value;
+            resultsContainer.innerHTML = '';
+            hiddenModelloInput.value = ''; // Resetta se l'utente modifica il testo
+
+            if (query.length < 1 || !selectedMarcaId) {
+                resultsContainer.classList.add('hidden');
+                return;
+            }
+
+            const filteredModelli = modelliData.filter(modello => {
+                const matchesMarca = modello.MarcaID == selectedMarcaId;
+                const matchesQuery = (modello.Nome.toLowerCase().includes(query)) ||
+                                     (modello.Codice_Modello && modello.Codice_Modello.toLowerCase().includes(query));
+                return matchesMarca && matchesQuery;
+            });
+            
+            if (filteredModelli.length > 0) {
+                filteredModelli.slice(0, 10).forEach(modello => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    const displayText = modello.Codice_Modello ? `${modello.Codice_Modello} - ${modello.Nome}` : modello.Nome;
+                    item.textContent = displayText;
+                    item.addEventListener('click', () => {
+                        searchModelloInput.value = displayText;
+                        hiddenModelloInput.value = modello.ID;
+                        resultsContainer.classList.add('hidden');
+                        checkFormVisibility();
+                    });
+                    resultsContainer.appendChild(item);
+                });
+                resultsContainer.classList.remove('hidden');
+            } else {
+                resultsContainer.innerHTML = '<div class="search-result-item no-results">Nessun modello trovato</div>';
+                resultsContainer.classList.remove('hidden');
+            }
+        });
+        
         function checkFormVisibility() {
-            const selectedModelloId = modelloSelect.value;
+            const selectedModelloId = hiddenModelloInput.value;
             if (!selectedModelloId) {
                 datiTecniciContainer.style.display = 'none';
                 cccContainer.style.display = 'none';
@@ -338,13 +384,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 cccContainer.style.display = 'none';
             }
         }
+        
+        document.addEventListener('click', function(e) {
+            if (!searchModelloInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+                resultsContainer.classList.add('hidden');
+            }
+        });
 
-        marcaSelect.addEventListener('change', updateModelli);
-        modelloSelect.addEventListener('change', checkFormVisibility);
-
-        if (marcaSelect.value) {
-            updateModelli();
-        }
+        // Inizializza lo stato al caricamento della pagina
+        toggleModelloSearch();
     });
 </script>
 
@@ -352,3 +400,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 </body>
 </html>
+
