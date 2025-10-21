@@ -1,0 +1,231 @@
+/* File: _tables.css */
+/* Stili Generali per le Tabelle */
+.table-container {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin: 20px auto;
+}
+
+.table-container h2 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+/* Stile per la barra di ricerca */
+.search-box {
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+}
+
+.search-box:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+/* Stili per la tabella */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 14px;
+    table-layout: auto; /* Permette alle colonne di adattarsi al contenuto */
+}
+
+/* Intestazione della tabella */
+th {
+    background-color: #f2f2f2;
+    color: #333;
+    font-weight: bold;
+    padding: 12px;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+/* Stili per la riga dei filtri nell'intestazione */
+.filter-row td {
+    padding: 8px 12px;
+    border-top: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
+    background-color: #f9f9f9;
+}
+
+.filter-select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+}
+
+.filter-select:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+/* Righe della tabella */
+td {
+    padding: 12px;
+    border: 1px solid #ddd;
+    vertical-align: top;
+    line-height: 1.4;
+}
+
+/* Stili per le righe alternare */
+tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* Effetto al passaggio del mouse sulle righe */
+tbody tr:hover {
+    background-color: #e9ecef;
+}
+
+/* Pulsanti all'interno della tabella */
+.action-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.action-buttons .btn {
+    padding: 6px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.btn-modifica {
+    background-color: #ffc107;
+    color: #fff;
+}
+
+.btn-elimina {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.btn-visualizza {
+    background-color: #6c757d;
+    color: #fff; /* Imposta il colore per l'icona */
+}
+
+.btn-modifica:hover { 
+    background-color: #e0a800;
+    transform: translateY(-2px);
+}
+.btn-elimina:hover { 
+    background-color: #c82333;
+    transform: translateY(-2px);
+}
+.btn-visualizza:hover { 
+    background-color: #5a6268;
+    transform: translateY(-2px);
+}
+
+/* Stile per il bottone di aggiunta (Generale, riutilizzato per CSV) */
+.add-button {
+    display: inline-block;
+    padding: 10px 15px;
+    background-color: #28a745;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.add-button:hover {
+    background-color: #218838;
+    transform: translateY(-2px);
+}
+
+/* NUOVO: Colore specifico per il pulsante di esportazione CSV */
+.export-button {
+    background-color: #17a2b8; /* Colore ciano per l'esportazione */
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 500;
+    /* Rimuoviamo il margin-bottom standard per gestirlo nel contenitore flex */
+    margin-bottom: 0; 
+}
+.export-button:hover {
+    background-color: #138496; 
+}
+
+
+/* Stili per le intestazioni della tabella ordinabili */
+th[data-sortable] {
+    cursor: pointer;
+    position: relative;
+    padding-right: 25px; /* Spazio per l'icona della freccia */
+}
+
+/* Freccia di ordinamento (inizialmente nascosta) */
+th[data-sortable]::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* Freccia verso l'alto per l'ordinamento ascendente */
+th.sort-asc::after {
+    border-bottom: 5px solid #000;
+    opacity: 1;
+}
+
+/* Freccia verso il basso per l'ordinamento discendente */
+th.sort-desc::after {
+    border-top: 5px solid #000;
+    opacity: 1;
+}
+
+
+/* Stili per i badge di stato (riutilizzati dalla dashboard e ricondizionamenti) */
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+    text-transform: uppercase;
+}
+
+/* Colori specifici per gli stati del ricondizionamento */
+.status-in-corso { 
+    background-color: #ffc107; 
+    color: #333; 
+}
+.status-completato { 
+    background-color: #28a745; 
+}
+.status-demolito { 
+    background-color: #dc3545; 
+}
+.status-non-iniziato { 
+    background-color: #6c757d; 
+}
+

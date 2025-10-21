@@ -1,0 +1,244 @@
+/* File: _forms.css */
+/* Stili per il contenitore dei form */
+.form-container {
+    max-width: 700px;
+    margin: 40px auto;
+    padding: 30px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.form-container h2 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 25px;
+}
+
+/* Stili per i gruppi di form */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #555;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"],
+.form-group input[type="date"],
+.form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+}
+
+.form-group input:focus, .form-group select:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+.message.warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+/* Stili per i bottoni */
+button[type="submit"] {
+    width: 100%;
+    padding: 12px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+.back-link {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    color: #007bff;
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+.back-link:hover {
+    color: #0056b3;
+}
+
+/* NUOVA REGOLA: Contenitore per i gruppi di permessi */
+.permessi-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 25px;
+}
+
+/* MODIFICATA: Rimosso il margine per far gestire lo spazio al contenitore grid */
+.permessi-group {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 0; 
+    background-color: #f8f9fa;
+}
+
+.permessi-group legend {
+    font-weight: bold;
+    color: #007bff;
+    padding: 0 10px;
+    font-size: 1.2em;
+}
+
+
+/* Stili per la griglia interna ai gruppi */
+.permessi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.permesso-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 15px;
+    background-color: #fff; /* Sfondo bianco per staccare dal gruppo */
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.permesso-item:hover {
+    background-color: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.permesso-item input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.permesso-item label {
+    margin: 0;
+    font-weight: normal;
+    cursor: pointer;
+    flex-grow: 1;
+}
+/* Stile per il pulsante di download del report */
+.btn-download-report {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    background-color: #17a2b8;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+    transition: background-color 0.3s ease;
+}
+
+.btn-download-report:hover {
+    background-color: #138496;
+}
+
+/* Stile per il gruppo di pulsanti sotto la tabella */
+.button-group-bottom {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
+
+/* Stili per la checklist di ricondizionamento */
+.checklist-section {
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    margin-bottom: 25px;
+    background-color: #f9f9f9;
+}
+.checklist-section h3 {
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+    margin-top: 0;
+    color: #007bff;
+}
+.checklist-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dotted #eee;
+}
+.checklist-item:last-child {
+    border-bottom: none;
+}
+.radio-group {
+    display: flex;
+    gap: 15px;
+    font-size: 14px;
+}
+.radio-group > label:first-child {
+    font-weight: bold;
+    flex-grow: 1;
+}
+.radio-label {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+.radio-label input[type="radio"] {
+    margin-right: 5px;
+}
+/* Contenitore per la finalizzazione */
+.finalizza-box {
+    border-top: 2px solid #007bff;
+    padding-top: 20px;
+    margin-top: 30px;
+}
+.finalizza-box button {
+    background-color: #007bff;
+}
+/* Stili per i messaggi di stato all'interno del form/card */
+.message.warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+.message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+.message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+
+fieldset {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.consumables-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+    gap: 15px; 
+}
+.consumables-grid .form-group {
+    margin-bottom: 0;
+}

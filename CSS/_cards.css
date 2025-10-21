@@ -1,0 +1,128 @@
+/* Stili per il contenitore principale della pagina */
+.card-container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    color: #333;
+    min-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Stili per le singole schede (card) */
+.card {
+    background-color: #fff;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.card h3 {
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    color: #007bff;
+}
+
+.card p {
+    margin: 5px 0;
+}
+
+.card strong {
+    color: #666;
+}
+
+/* Stili per il gruppo di pulsanti */
+.button-group {
+    margin-top: auto;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+/* Applica gli stili a entrambi i tag 'a' e 'button' */
+.button-group a,
+.button-group button {
+    display: inline-block;
+    padding: 10px 15px;
+    text-decoration: none;
+    border-radius: 5px;
+    text-align: center;
+    transition: background-color 0.3s;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.back-button {
+    background-color: #f1f1f1;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.back-button:hover {
+    background-color: #e2e2e2;
+}
+
+.print-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+}
+
+.print-button:hover {
+    background-color: #0056b3;
+}
+
+/* Stili per la tabella degli spostamenti */
+.spostamenti-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.spostamenti-table th,
+.spostamenti-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.spostamenti-table th {
+    background-color: #e9ecef;
+    font-weight: bold;
+    color: #333;
+}
+
+.spostamenti-table tr {
+    background-color: #fff;
+    color: #333;
+}
+
+/* Stili per la sezione del codice a barre */
+#barcode-display {
+    text-align: center;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-top: 20px;
+    background-color: #fff;
+    color: #333;
+}
+
+#barcode-display svg {
+    background-color: white;
+    padding: 5px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Stili per la stampa del codice a barre (specifici e necessari) */
+#print-target {
+    display: none;
+}

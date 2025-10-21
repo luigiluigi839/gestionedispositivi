@@ -1,0 +1,253 @@
+/* Stili globali per il corpo della pagina e il layout */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+    color: #333;
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Contenitore principale per il contenuto delle pagine */
+.container {
+    max-width: 1200px; /* Larghezza aumentata */
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    flex-grow: 1;
+}
+
+/* Stili per i messaggi di notifica (usati in varie pagine) */
+.message {
+    padding: 10px 15px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.message.success {
+    background-color: #28a745;
+    color: white;
+}
+
+.message.error {
+    background-color: #dc3545;
+    color: white;
+}
+
+.message .icon {
+    font-size: 1.2rem;
+}
+
+
+/* --- NUOVI STILI HEADER RESPONSIVE --- */
+
+/* Stili per l'Header principale */
+.main-header {
+    background-color: #fff;
+    color: #333;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 1000;
+}
+
+.main-header .logo a {
+    color: #004a99;
+    text-decoration: none;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+/* Stili per la navigazione Desktop */
+.main-nav ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 25px;
+}
+
+.main-nav a {
+    color: #333;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 500;
+    padding: 5px 0;
+    position: relative;
+    transition: color 0.3s ease;
+}
+
+.main-nav a:hover {
+    color: #007bff;
+}
+
+.main-header .user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.main-header .logout-link {
+    background-color: #dc3545;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.main-header .logout-link:hover {
+    background-color: #c82333;
+}
+
+/* Pulsante Hamburger per il menu mobile */
+.mobile-nav-toggle {
+    display: none; /* Nascosto di default su desktop */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 10px;
+    z-index: 1001; /* Sopra la navigazione */
+}
+
+.mobile-nav-toggle .icon-bar {
+    display: block;
+    width: 25px;
+    height: 3px;
+    background-color: #333;
+    margin: 5px 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Stili per il Footer */
+.main-footer {
+    background-color: #343a40;
+    color: #f8f9fa;
+    text-align: center;
+    padding: 15px;
+    margin-top: auto;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+}
+
+
+/* --- MEDIA QUERY PER RESPONSIVE --- */
+/* Quando lo schermo è più piccolo di 900px */
+@media (max-width: 900px) {
+    .main-nav {
+        display: none; 
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background-color: #fff;
+        width: 250px;
+        box-shadow: -2px 2px 5px rgba(0, 0, 0, 0.1);
+        border-top: 1px solid #eee;
+    }
+
+    .main-nav.is-active {
+        display: block;
+    }
+
+    .main-nav ul {
+        flex-direction: column;
+        padding: 15px;
+        gap: 0;
+    }
+
+    .main-nav li { border-bottom: 1px solid #f0f0f0; }
+    .main-nav li:last-child { border-bottom: none; }
+    .main-nav a { display: block; padding: 15px 10px; width: 100%; }
+    
+    .main-header .user-info span { display: none; }
+    .mobile-nav-toggle { display: block; }
+
+    /* Animazione dell'icona hamburger in "X" */
+    .mobile-nav-toggle.is-active .icon-bar:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+    .mobile-nav-toggle.is-active .icon-bar:nth-child(2) { opacity: 0; }
+    .mobile-nav-toggle.is-active .icon-bar:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+}
+
+
+/* --- Stili per il Nuovo Menu Utente --- */
+
+.user-menu {
+    position: relative;
+    user-select: none; /* Impedisce la selezione del testo */
+}
+
+.user-menu-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+}
+
+.user-menu-toggle:hover {
+    background-color: #f0f0f0;
+}
+
+.user-menu-toggle .arrow {
+    font-size: 0.7em;
+    transition: transform 0.2s ease;
+}
+
+/* Ruota la freccia quando il menu è aperto (JS aggiungerà la classe 'active') */
+.user-menu-toggle.active .arrow {
+    transform: rotate(180deg);
+}
+
+.user-menu-dropdown {
+    position: absolute;
+    top: 110%;
+    right: 0;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 1px solid #ddd;
+    width: 180px;
+    z-index: 1100;
+    overflow: hidden;
+}
+
+.user-menu-dropdown a {
+    display: block;
+    padding: 12px 15px;
+    text-decoration: none;
+    color: #333;
+    font-size: 15px;
+    transition: background-color 0.2s ease;
+}
+
+.user-menu-dropdown a:hover {
+    background-color: #f5f5f5;
+}
+
+.user-menu-dropdown .logout-link {
+    background-color: #f8d7da;
+    color: #721c24;
+    font-weight: bold;
+}
+
+.user-menu-dropdown .logout-link:hover {
+    background-color: #f5c6cb;
+}
+
+.hidden {
+    display: none;
+}

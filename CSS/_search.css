@@ -1,0 +1,66 @@
+/* Stile per il contenitore della ricerca e dei risultati */
+.form-group {
+    position: relative; /* Essenziale per posizionare i risultati */
+}
+
+/* Stile per la barra di ricerca */
+.search-box {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box; /* Assicura che padding e border siano inclusi nella larghezza totale */
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+}
+
+/* Effetto di focus per la barra di ricerca */
+.search-box:focus {
+    border-color: #007bff; /* Colore blu per evidenziare il focus */
+    outline: none; /* Rimuove la linea di contorno predefinita del browser */
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); /* Aggiunge un'ombra elegante */
+}
+
+/* Stile per il menu dei risultati */
+.search-results-list {
+    position: absolute;
+    top: 100%; /* Posiziona il menu subito sotto la barra di ricerca */
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-top: none; /* Rimuove il bordo superiore per un look più coeso */
+    border-radius: 0 0 5px 5px;
+    max-height: 200px; /* Limita l'altezza per evitare che diventi troppo grande */
+    overflow-y: auto; /* Aggiunge una barra di scorrimento se i risultati sono troppi */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Stile per ogni singolo risultato */
+.search-result-item {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee; /* Linea divisoria tra i risultati */
+    font-size: 14px;
+    color: #333;
+    transition: background-color 0.2s ease;
+}
+
+/* Stile per il risultato al passaggio del mouse */
+.search-result-item:hover {
+    background-color: #f0f0f0;
+}
+
+/* Stile per l'elemento "Nessun risultato" */
+.search-result-item.no-results {
+    color: #999;
+    font-style: italic;
+    cursor: default;
+    text-align: center;
+}
+
+/* Classe di utilità per nascondere elementi */
+.hidden {
+    display: none !important; /* !important assicura che sovrascriva altri stili */
+}
