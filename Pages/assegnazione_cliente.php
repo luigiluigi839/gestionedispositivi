@@ -17,7 +17,7 @@ $status = '';
 
 // Gestione dell'invio del form
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $seriale_dispositivo = $_POST['seriale_dispositivo'] ?? '';
+    $seriale_dispositivo = $_POST['seriale_dispositivo'] ?? ''; // Seriale Inrete del corpo macchina
     $ragione_sociale_azienda_dest = $_POST['ragione_sociale_azienda_dest'] ?? null;
     $data_installazione = $_POST['data_installazione'] ?? date('Y-m-d');
     $nolo_cash = $_POST['nolo_cash'] ?? null;
@@ -27,6 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tipo_scadenza = trim($_POST['tipo_scadenza'] ?? '');
     $data_scadenza = $_POST['data_scadenza'] ?? null;
     $note_scadenza = trim($_POST['note_scadenza'] ?? '');
+    
+    $id_ubicazione_cliente = 9; // Ubicazione "Installato Presso Cliente"
 
     if (empty($seriale_dispositivo) || empty($ragione_sociale_azienda_dest)) {
         $_SESSION['message'] = 'Selezionare un dispositivo e un\'azienda.';
@@ -41,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $assistenza_nome = $stmt_assistenza_nome->fetchColumn();
             }
 
+            // Inserimento dello spostamento
             $sql_insert_spostamento = "INSERT INTO Spostamenti (Dispositivo, Data_Install, Azienda, Nolo_Cash, Assistenza, Note, Utente_Ultima_Mod, Data_Ultima_Mod) VALUES (:dispositivo, :data_install, :azienda, :nolo_cash, :assistenza, :note, :utente_mod, NOW())";
             $stmt_insert_spostamento = $pdo->prepare($sql_insert_spostamento);
             
@@ -55,6 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt_insert_spostamento->execute(array_merge($params, [':dispositivo' => $seriale_dispositivo]));
             
+            // Aggiornamento ubicazione dispositivo principale
+            $sql_update_ubicazione = "UPDATE Dispositivi SET Ubicazione = :id_ubicazione, Utente_Ultima_Mod = :utente_mod, Data_Ultima_Mod = NOW() WHERE Seriale_Inrete = :seriale_dispositivo";
+            $stmt_update_ubicazione = $pdo->prepare($sql_update_ubicazione);
+            $stmt_update_ubicazione->execute([
+                ':id_ubicazione' => $id_ubicazione_cliente,
+                ':utente_mod' => $id_utente_loggato,
+                ':seriale_dispositivo' => $seriale_dispositivo
+            ]);
+            
             $sql_accessori = "SELECT Accessorio_Seriale FROM Bundle_Dispositivi WHERE CorpoMacchina_Seriale = :corpo_macchina";
             $stmt_accessori = $pdo->prepare($sql_accessori);
             $stmt_accessori->execute([':corpo_macchina' => $seriale_dispositivo]);
@@ -63,11 +75,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $accessori_count = 0;
             if ($accessori) {
                 foreach ($accessori as $accessorio_seriale) {
-                    $note_accessorio = trim($note . " (Installato come accessorio del bundle)");
+                    
+                    // MODIFICATO: La nota dell'accessorio ora include il seriale del dispositivo principale
+                    $note_accessorio = trim($note . " (Installato come accessorio del bundle " . $seriale_dispositivo . ")");
+
                     $stmt_insert_spostamento->execute(array_merge($params, [
                         ':dispositivo' => $accessorio_seriale,
                         ':note' => $note_accessorio
                     ]));
+
+                    // Aggiorna anche l'ubicazione di ogni accessorio
+                    $stmt_update_ubicazione->execute([
+                        ':id_ubicazione' => $id_ubicazione_cliente,
+                        ':utente_mod' => $id_utente_loggato,
+                        ':seriale_dispositivo' => $accessorio_seriale
+                    ]);
+
                     $accessori_count++;
                 }
             }
@@ -91,9 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $success_message = '';
             if ($accessori_count > 0) {
-                $success_message = "Bundle assegnato con successo! Registrato spostamento per il corpo macchina e $accessori_count accessorio/i.";
+                $success_message = "Bundle assegnato con successo! Registrato spostamento e aggiornata ubicazione per il corpo macchina e $accessori_count accessorio/i.";
             } else {
-                $success_message = 'Dispositivo assegnato e spostamento registrato con successo!';
+                $success_message = 'Dispositivo assegnato, spostamento registrato e ubicazione aggiornata con successo!';
             }
             if ($reminder_creato) {
                 $success_message .= ' È stato creato anche un reminder di scadenza.';
@@ -238,6 +261,7 @@ try {
 </div>
 
 <script>
+    // Lo script JS rimane invariato
     document.addEventListener('DOMContentLoaded', function() {
         const dispositivi = <?= json_encode($dispositivi) ?>;
         const aziende = <?= json_encode($aziende) ?>;
@@ -311,11 +335,9 @@ try {
                     bundleContainer.style.display = 'block';
                     
                     const corpoMacchina = dispositivi.find(d => String(d.Seriale_Inrete) === corpoMacchinaId);
-                    // Se il corpo macchina non è nella lista dei disponibili, recuperalo
                     if (corpoMacchina) {
                         selectDevice(corpoMacchina.Seriale_Inrete, `${corpoMacchina.Marca} ${corpoMacchina.Modello} - Seriale: ${corpoMacchina.Seriale}`, corpoMacchina);
                     } else {
-                        // Chiamata di fallback se il corpo macchina non è in lista
                         const responseMain = await fetch(`../PHP/get_bundle_accessories.php?action=get_device_details&id=${corpoMacchinaId}`);
                         if (!responseMain.ok) throw new Error(`Errore server corpo macchina: ${responseMain.statusText}`);
                         const corpoMacchinaDetails = await responseMain.json();

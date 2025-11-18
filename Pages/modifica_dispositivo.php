@@ -16,30 +16,38 @@ if (!$dispositivo_serial_inrete) { die("ID dispositivo non specificato."); }
 
 $message = '';
 $status = '';
-// Inizializzazione array
-$dispositivo = null; $ubicazioni = []; $stati = []; $proprieta = []; $utenti = []; $marche = []; $modelli = []; $scadenze_esistenti = [];
+$dispositivo = null; $ubicazioni = []; $stati = []; $proprieta = []; $utenti = []; $marche = []; $modelli = [];
 
 try {
-    // Recupera tutti i dati necessari per popolare il form
+    // Recupera i dati del dispositivo prima di qualsiasi modifica
     $stmt_dispositivo = $pdo->prepare("SELECT * FROM Dispositivi WHERE Seriale_inrete = :id");
     $stmt_dispositivo->execute([':id' => $dispositivo_serial_inrete]);
     $dispositivo = $stmt_dispositivo->fetch(PDO::FETCH_ASSOC);
     if (!$dispositivo) { die("Dispositivo non trovato."); }
 
-    // Dati per i dropdown
-    $ubicazioni = $pdo->query("SELECT ID, Nome FROM Ubicazioni ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
+    // --- MODIFICATO: Logica di caricamento ubicazioni ---
+    $current_location_id = $dispositivo['Ubicazione'];
+    if ($current_location_id == 9) {
+        // 1. Se è installato, carica SOLO l'ubicazione "Installato" per mostrarla nel dropdown disabilitato
+        $ubicazioni = $pdo->query("SELECT ID, Nome FROM Ubicazioni WHERE ID = 9")->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        // 2. Se NON è installato, carica TUTTE le ubicazioni TRANNE "Installato"
+        $ubicazioni = $pdo->query("SELECT ID, Nome FROM Ubicazioni WHERE ID != 9 ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
+    }
+    // --- FINE MODIFICA ---
+
+    // Dati per gli altri dropdown (invariati)
     $stati = $pdo->query("SELECT ID, Nome FROM Stati ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
     $proprieta = $pdo->query("SELECT ID, Nome FROM Proprieta ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
     $utenti = $pdo->query("SELECT ID, Nome, Cognome FROM Utenti ORDER BY Cognome, Nome")->fetchAll(PDO::FETCH_ASSOC);
     $marche = $pdo->query("SELECT ID, Nome FROM Marche ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
     
-    // Dati per la ricerca JS dei modelli
     $modelli = $pdo->query("SELECT mo.ID, mo.Nome, mo.Codice_Modello, mo.MarcaID, t.Nome AS TipologiaNome 
                             FROM Modelli mo 
                             LEFT JOIN Tipologie t ON mo.Tipologia = t.ID 
                             ORDER BY mo.Nome")->fetchAll(PDO::FETCH_ASSOC);
 
-    // Recupera il testo da visualizzare per il modello attualmente selezionato
+    // Logica per display modello (invariata)
     $modello_display_text = '';
     if (!empty($dispositivo['ModelloID'])) {
         foreach ($modelli as $m) {
@@ -52,9 +60,18 @@ try {
 
 } catch (PDOException $e) { die("Errore nel recupero dei dati: " . $e->getMessage()); }
 
-// Gestione del salvataggio del form
+// Gestione del salvataggio del form (logica di sicurezza invariata)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
+        // Logica di sicurezza per l'ubicazione:
+        // Se l'ubicazione originale è 9, forza il valore a 9, ignorando l'input del form.
+        // Altrimenti, usa il valore inviato dal form.
+        if ($dispositivo['Ubicazione'] == 9) {
+            $ubicazione_da_salvare = 9;
+        } else {
+            $ubicazione_da_salvare = $_POST['ubicazione'];
+        }
+
         $sql = "UPDATE Dispositivi SET
                     Codice_Articolo = :codice_articolo, MarcaID = :marca_id, ModelloID = :modello_id,
                     Seriale = :seriale, Ubicazione = :ubicazione, Stato = :stato, Pin = :pin,
@@ -66,7 +83,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare($sql);
         $params = [
             ':codice_articolo' => $_POST['codice_articolo'], ':marca_id' => $_POST['marca_id'], ':modello_id' => $_POST['modello_id'],
-            ':seriale' => $_POST['seriale'], ':ubicazione' => $_POST['ubicazione'], ':stato' => $_POST['stato'], ':pin' => $_POST['pin'],
+            ':seriale' => $_POST['seriale'], 
+            ':ubicazione' => $ubicazione_da_salvare, // Usa la variabile sicura
+            ':stato' => $_POST['stato'], ':pin' => $_POST['pin'],
             ':data_ordine' => empty(trim($_POST['data_ordine'])) ? null : trim($_POST['data_ordine']),
             ':note' => trim($_POST['note']), ':proprieta_id' => empty($_POST['proprieta_id']) ? null : $_POST['proprieta_id'],
             ':bn' => empty(trim($_POST['bn'])) ? null : trim($_POST['bn']),
@@ -127,7 +146,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         <div class="card">
             <h3>Dati Amministrativi e Magazzino</h3>
-            <div class="form-group"><label>Ubicazione</label><select name="ubicazione" required><?php foreach ($ubicazioni as $u): ?><option value="<?= $u['ID'] ?>" <?= ($dispositivo['Ubicazione'] == $u['ID']) ? 'selected' : '' ?>><?= htmlspecialchars($u['Nome']) ?></option><?php endforeach; ?></select></div>
+            
+            <div class="form-group">
+                <label>Ubicazione</label>
+                <select name="ubicazione" required <?= ($dispositivo['Ubicazione'] == 9) ? 'disabled' : '' ?>>
+                    <?php foreach ($ubicazioni as $u): ?>
+                        <option value="<?= $u['ID'] ?>" <?= ($dispositivo['Ubicazione'] == $u['ID']) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($u['Nome']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if ($dispositivo['Ubicazione'] == 9): ?>
+                    <p class="form-hint" style="color: #dc3545; margin-top: 5px;">
+                        L'ubicazione non può essere modificata perché il dispositivo è installato. Usare la funzione "Rientro Dispositivi" per cambiarla.
+                    </p>
+                <?php endif; ?>
+            </div>
+            
             <div class="form-group"><label>Stato</label><select name="stato" required><?php foreach ($stati as $s): ?><option value="<?= $s['ID'] ?>" <?= ($dispositivo['Stato'] == $s['ID']) ? 'selected' : '' ?>><?= htmlspecialchars($s['Nome']) ?></option><?php endforeach; ?></select></div>
             <div class="form-group"><label>Data Ordine</label><input type="date" name="data_ordine" value="<?= htmlspecialchars($dispositivo['Data_Ordine'] ?? '') ?>"></div>
             <div class="form-group"><label>Proprietà</label><select name="proprieta_id"><option value="">Nessuna</option><?php foreach ($proprieta as $p): ?><option value="<?= $p['ID'] ?>" <?= ($dispositivo['Proprieta'] == $p['ID']) ? 'selected' : '' ?>><?= htmlspecialchars($p['Nome']) ?></option><?php endforeach; ?></select></div>
@@ -266,4 +301,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 </body>
 </html>
-

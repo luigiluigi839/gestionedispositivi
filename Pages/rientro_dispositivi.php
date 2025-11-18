@@ -1,9 +1,7 @@
 <?php
-
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-
 
 session_start();
 require_once '../PHP/db_connect.php';
@@ -12,13 +10,12 @@ $user_permessi = $_SESSION['permessi'] ?? [];
 $is_superuser = $_SESSION['is_superuser'] ?? false;
 $id_utente_loggato = $_SESSION['user_id'] ?? null;
 
-// MODIFICATO: Controllo sul permesso specifico 'ritiro_dispositivi'
+// Controllo sul permesso specifico 'ritiro_dispositivi'
 if (!isset($id_utente_loggato) || (!in_array('ritiro_dispositivi', $user_permessi) && !$is_superuser)) {
     header('Location: ../Pages/dashboard.php?error=Accesso non autorizzato');
     exit();
 }
 
-// Inizializzazione delle variabili
 $message_list = [];
 if (isset($_SESSION['rientro_messages'])) {
     $message_list = $_SESSION['rientro_messages'];
@@ -27,8 +24,12 @@ if (isset($_SESSION['rientro_messages'])) {
 
 // Recupera dati per i menu a tendina
 try {
-    $ubicazioni = $pdo->query("SELECT ID, Nome FROM Ubicazioni ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
-    $stati = $pdo->query("SELECT ID, Nome FROM Stati ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
+    // MODIFICATO: La query ora esclude l'ubicazione con ID 9.
+    $ubicazioni = $pdo->query("SELECT ID, Nome FROM Ubicazioni WHERE ID != 9 ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
+    
+    // La query carica solo gli stati con ID 5, 6, e 7.
+    $stati = $pdo->query("SELECT ID, Nome FROM Stati WHERE ID IN (5, 6, 7) ORDER BY Nome")->fetchAll(PDO::FETCH_ASSOC);
+
 } catch (PDOException $e) {
     die("Errore fatale: " . $e->getMessage());
 }
@@ -51,14 +52,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message_list_local[] = ['status' => 'error', 'text' => 'Nessun seriale inserito.'];
     } else {
         $seriali_scansionati_inrete = [];
-        $seriale_map = []; // Mappa da Seriale_Inrete a seriale grezzo/originale
+        $seriale_map = []; 
 
-        // 1. Pre-validazione: Converte tutti i seriali scansionati in Seriale_Inrete e verifica l'esistenza
+        // 1. Pre-validazione: Converte, controlla esistenza e ubicazione
         foreach ($seriali_grezzi as $seriale) {
-            $stmt_find = $pdo->prepare("SELECT Seriale_Inrete FROM Dispositivi WHERE Seriale = ? OR Seriale_Inrete = ?");
+            $stmt_find = $pdo->prepare("SELECT Seriale_Inrete, Ubicazione FROM Dispositivi WHERE Seriale = ? OR Seriale_Inrete = ?");
             $stmt_find->execute([$seriale, $seriale]);
             $dispositivo = $stmt_find->fetch();
+
             if ($dispositivo) {
+                // Controllo sull'ubicazione. Deve essere 9.
+                if ($dispositivo['Ubicazione'] != 9) {
+                    $error_report[] = ['seriale' => $seriale, 'motivo' => 'Rientro non consentito: il dispositivo non risulta installato presso un cliente.'];
+                    continue; // Salta questo seriale e passa al successivo
+                }
+                
                 $seriale_inrete = $dispositivo['Seriale_Inrete'];
                 $seriali_scansionati_inrete[] = $seriale_inrete;
                 $seriale_map[$seriale_inrete] = $seriale;
@@ -70,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 2. Controllo Integrità Bundle
         $seriali_da_processare = [];
-        $bundle_processati = []; // Tiene traccia dei corpi macchina già validati
+        $bundle_processati = [];
 
         foreach ($seriali_scansionati_inrete as $seriale_inrete) {
             $stmt_bundle = $pdo->prepare("SELECT CorpoMacchina_Seriale FROM Bundle_Dispositivi WHERE CorpoMacchina_Seriale = :id1 OR Accessorio_Seriale = :id2 LIMIT 1");
@@ -78,30 +86,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $bundle_info = $stmt_bundle->fetch();
 
             if (!$bundle_info) {
-                // Non fa parte di nessun bundle, è valido per il processo
                 $seriali_da_processare[] = $seriale_inrete;
             } else {
                 $corpo_macchina_id = $bundle_info['CorpoMacchina_Seriale'];
                 if (in_array($corpo_macchina_id, $bundle_processati)) {
-                    continue; // Bundle già controllato
+                    continue; 
                 }
 
-                // Recupera tutti i componenti del bundle
                 $stmt_componenti = $pdo->prepare("SELECT Accessorio_Seriale FROM Bundle_Dispositivi WHERE CorpoMacchina_Seriale = :id");
                 $stmt_componenti->execute([':id' => $corpo_macchina_id]);
                 $componenti_bundle = $stmt_componenti->fetchAll(PDO::FETCH_COLUMN);
-                $componenti_bundle[] = (int)$corpo_macchina_id; // Aggiunge il corpo macchina alla lista
+                $componenti_bundle[] = (int)$corpo_macchina_id;
 
-                // Verifica se tutti i componenti sono stati scansionati
                 $componenti_mancanti = array_diff($componenti_bundle, $seriali_scansionati_inrete);
 
                 if (empty($componenti_mancanti)) {
-                    // Bundle completo, aggiungi tutti i suoi componenti alla lista da processare
                     foreach ($componenti_bundle as $comp) {
                         $seriali_da_processare[] = $comp;
                     }
                 } else {
-                    // Bundle incompleto, genera errore per tutti i componenti scansionati di questo bundle
                     $mancanti_str = implode(', ', $componenti_mancanti);
                     $componenti_scansionati_del_bundle = array_intersect($componenti_bundle, $seriali_scansionati_inrete);
                     foreach ($componenti_scansionati_del_bundle as $comp_scansionato) {
@@ -116,13 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $seriali_da_processare = array_unique($seriali_da_processare);
         
-        // 3. Processa solo i seriali validi (singoli o bundle completi)
+        // 3. Processa solo i seriali validi
         if (!empty($seriali_da_processare)) {
             $pdo->beginTransaction();
             try {
                 $count_success = 0;
                 foreach ($seriali_da_processare as $seriale_rientro) {
-                    // Controlla se già rientrato (sicurezza aggiuntiva)
                     $stmt_check = $pdo->prepare("SELECT Data_Ritiro FROM Spostamenti WHERE Dispositivo = ? ORDER BY Data_Install DESC LIMIT 1");
                     $stmt_check->execute([$seriale_rientro]);
                     $ultimo_spostamento = $stmt_check->fetch();
@@ -132,11 +134,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         continue;
                     }
                     
-                    // Aggiorna Dispositivo
                     $stmt_update_disp = $pdo->prepare("UPDATE Dispositivi SET Ubicazione = :ubicazione, Stato = :stato, Utente_Ultima_Mod = :utente, Data_Ultima_Mod = :data WHERE Seriale_Inrete = :seriale");
                     $stmt_update_disp->execute([':ubicazione' => $nuova_ubicazione_id, ':stato' => $nuovo_stato_id, ':utente' => $id_utente_loggato, ':data' => $data_ultima_mod, ':seriale' => $seriale_rientro]);
 
-                    // Aggiorna Spostamento
                     if ($ultimo_spostamento) {
                         $stmt_update_spost = $pdo->prepare("UPDATE Spostamenti SET Data_Ritiro = :data_ritiro, Utente_Ultima_Mod = :utente, Data_Ultima_Mod = :data WHERE Dispositivo = :seriale AND Data_Ritiro IS NULL");
                         $stmt_update_spost->execute([':data_ritiro' => $data_ritiro, ':utente' => $id_utente_loggato, ':data' => $data_ultima_mod, ':seriale' => $seriale_rientro]);
@@ -180,6 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="main-content">
     <div class="form-container">
         <h2>Registra Rientro Dispositivi</h2>
+        <p>Inserisci i seriali dei dispositivi installati per registrarne il rientro.</p>
 
         <?php if (!empty($message_list)): ?>
             <div class="messages-container">

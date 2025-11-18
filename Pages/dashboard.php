@@ -118,6 +118,14 @@ $user_name = $_SESSION['user_name'] ?? 'Ospite';
         </a>
         <?php endif; ?>
         
+        <?php if (in_array('dashboard_ordini', $permessi) || $is_superuser): ?>
+        <a href="gestione_ordini/dashboard_ordini.php" class="dashboard-tile">
+            <span class="icon">📋</span>
+            <h3>Gestione Ordini</h3>
+            <p>Visualizza e gestisci gli ordini dei clienti.</p>
+        </a>
+        <?php endif; ?>
+        
         <?php if (in_array('stampa_etichette', $permessi) || $is_superuser): ?>
         <a href="stampa_etichette.php" class="dashboard-tile">
             <span class="icon">🖨️</span>

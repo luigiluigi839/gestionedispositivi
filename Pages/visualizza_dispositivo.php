@@ -6,7 +6,7 @@ require_once '../PHP/db_connect.php';
 $user_permessi = $_SESSION['permessi'] ?? [];
 $is_superuser = $_SESSION['is_superuser'] ?? false;
 
-// Controllo sul permesso specifico di visualizzazione
+// Controllo sul permesso specifico di visualizzazione (invariato)
 if (!isset($_SESSION['user_id']) || (!in_array('visualizza_gestione_dispositivi', $user_permessi) && !$is_superuser)) {
     header('Location: ../Pages/dashboard.php?error=Accesso non autorizzato');
     exit();
@@ -16,6 +16,7 @@ $dispositivo_id = filter_input(INPUT_GET, 'id', FILTER_SANITIZE_NUMBER_INT);
 $dispositivo = null;
 $spostamenti = [];
 $scadenze = []; 
+$ricondizionamenti = [];
 $message = '';
 $status = '';
 
@@ -48,6 +49,7 @@ if ($dispositivo_id) {
             $message = "Dispositivo non trovato.";
             $status = 'error';
         } else {
+            // Query Spostamenti (invariata)
             if (in_array('visualizza_spostamenti', $user_permessi) || $is_superuser) {
                 $sql_spostamenti = "SELECT * FROM Spostamenti WHERE Dispositivo = :id ORDER BY Data_Install DESC";
                 $stmt_spostamenti = $pdo->prepare($sql_spostamenti);
@@ -55,12 +57,25 @@ if ($dispositivo_id) {
                 $spostamenti = $stmt_spostamenti->fetchAll(PDO::FETCH_ASSOC);
             }
 
-            // MODIFICATO: Carica le scadenze solo se l'utente ha il permesso
+            // Query Scadenze (invariata)
             if (in_array('dashboard_reminder', $user_permessi) || $is_superuser) {
                 $sql_scadenze = "SELECT * FROM Scadenze_Reminder WHERE Dispositivo_Seriale = :id ORDER BY Data_Scadenza ASC";
                 $stmt_scadenze = $pdo->prepare($sql_scadenze);
                 $stmt_scadenze->execute([':id' => $dispositivo_id]);
                 $scadenze = $stmt_scadenze->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            // MODIFICATO: La query ora è controllata da 'dashboard_ricondizionamenti'
+            if (in_array('dashboard_ricondizionamenti', $user_permessi) || $is_superuser) {
+                 $sql_ricond = "SELECT r.ID, r.Data_Inizio, r.Data_Fine, r.Stato_Globale, 
+                                       CONCAT(u.Nome, ' ', u.Cognome) AS OperatoreNome
+                                FROM Ricondizionamenti r
+                                LEFT JOIN Utenti u ON r.Operatore_ID = u.ID
+                                WHERE r.Dispositivo_Seriale = :id 
+                                ORDER BY r.Data_Inizio DESC";
+                $stmt_ricond = $pdo->prepare($sql_ricond);
+                $stmt_ricond->execute([':id' => $dispositivo_id]);
+                $ricondizionamenti = $stmt_ricond->fetchAll(PDO::FETCH_ASSOC);
             }
         }
 
@@ -78,6 +93,16 @@ function formatDate($dateString) {
     return date('d/m/Y', strtotime($dateString));
 }
 
+function formatDateTime($dateString) {
+    if (!$dateString || $dateString === '0000-00-00 00:00:00') return '';
+    try {
+        return date('d/m/Y H:i', strtotime($dateString));
+    } catch (Exception $e) {
+        return '';
+    }
+}
+
+
 function formatSeriale($seriale) {
     return str_pad((string)$seriale, 10, '0', STR_PAD_LEFT);
 }
@@ -92,6 +117,7 @@ $seriale_formattato = formatSeriale($dispositivo['Seriale_Inrete'] ?? '');
     <link rel="stylesheet" href="../CSS/_base.css">
     <link rel="stylesheet" href="../CSS/_forms.css">
     <link rel="stylesheet" href="../CSS/_cards.css">
+    <link rel="stylesheet" href="../CSS/_tables.css">
 </head>
 <body>
 
@@ -196,6 +222,49 @@ $seriale_formattato = formatSeriale($dispositivo['Seriale_Inrete'] ?? '');
             </div>
         <?php endif; ?>
 
+        <?php if (in_array('dashboard_ricondizionamenti', $user_permessi) || $is_superuser): ?>
+            <div class="card">
+                <h3>Storico Ricondizionamenti</h3>
+                <?php if (count($ricondizionamenti) > 0): ?>
+                    <table class="spostamenti-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Data Inizio</th>
+                                <th>Data Fine</th>
+                                <th>Stato</th>
+                                <th>Operatore</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($ricondizionamenti as $ricond): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($ricond['ID']) ?></td>
+                                    <td><?= formatDateTime($ricond['Data_Inizio']) ?></td>
+                                    <td><?= formatDateTime($ricond['Data_Fine'] ?? '') ?></td>
+                                    <td>
+                                        <span class="status-badge status-<?= strtolower(str_replace([' ', '/'], '-', $ricond['Stato_Globale'])) ?>">
+                                            <?= htmlspecialchars($ricond['Stato_Globale']) ?>
+                                        </span>
+                                    </td>
+                                    <td><?= htmlspecialchars($ricond['OperatoreNome'] ?? 'N/D') ?></td>
+                                    <td class="action-buttons">
+                                        <?php if (in_array('visualizza_ricondizionamento', $user_permessi) || $is_superuser): ?>
+                                            <a href="gestisci_ricondizionamento.php?id=<?= $ricond['ID'] ?>" class="btn btn-visualizza" title="Vedi Dettagli">👁️</a>
+                                        <?php else: ?>
+                                            <span>-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <p>Nessun intervento di ricondizionamento registrato per questo dispositivo.</p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
         <div class="card">
             <h3>Note</h3>
             <p><?= nl2br(htmlspecialchars($dispositivo['Note'] ?? '')) ?></p>

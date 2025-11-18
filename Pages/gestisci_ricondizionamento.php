@@ -188,9 +188,8 @@ $checklist_to_use = $is_accessory ? $checklist_fields_accessorio : $checklist_fi
             </div>
             
             <?php if (!$is_completed && $can_edit): ?>
-                <button type="submit" onclick="document.getElementById('form-action').value='aggiorna_progresso';">Salva Progresso</button>
-            <?php endif; ?>
-        </fieldset>
+                 <button type="submit" onclick="document.getElementById('form-action').value='aggiorna_progresso';">Salva Progresso</button>
+             <?php endif; ?>
 
         <?php if (!$is_completed && $can_edit): ?>
             <div class="card finalizza-box">
@@ -299,6 +298,9 @@ $checklist_to_use = $is_accessory ? $checklist_fields_accessorio : $checklist_fi
             }
         });
     });
+    
+   
+
 </script>
 
 <?php require_once '../PHP/footer.php'; ?>

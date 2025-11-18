@@ -5,7 +5,7 @@ require_once '../PHP/db_connect.php';
 $user_permessi = $_SESSION['permessi'] ?? [];
 $is_superuser_loggato = $_SESSION['is_superuser'] ?? false;
 
-// Aggiornato controllo permesso
+// Controllo permesso (invariato)
 if (!isset($_SESSION['user_id']) || (!in_array('modifica_permessi_utenti', $user_permessi) && !$is_superuser_loggato)) {
     header('Location: ../index.html');
     exit();
@@ -23,7 +23,7 @@ $is_superuser_da_modificare = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $permessi_selezionati = $_POST['permessi'] ?? [];
     $is_superuser_da_modificare_new = $is_superuser_loggato && isset($_POST['is_superuser_mod']) ? 1 : 0;
-    
+
     try {
         if ($is_superuser_loggato && $utente_id == $_SESSION['user_id'] && $is_superuser_da_modificare_new == 0) {
             $sql_count = "SELECT COUNT(*) FROM Utenti WHERE is_Superuser = 1";
@@ -47,7 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sql_insert = "INSERT INTO Permessi (Utente, Sezione) VALUES (:utente_id, :sezione_id)";
             $stmt_insert = $pdo->prepare($sql_insert);
             foreach ($permessi_selezionati as $sezione_id) {
-                $stmt_insert->execute([':utente_id' => $utente_id, ':sezione_id' => $sezione_id]);
+                 if (filter_var($sezione_id, FILTER_VALIDATE_INT)) {
+                    $stmt_insert->execute([':utente_id' => $utente_id, ':sezione_id' => $sezione_id]);
+                 }
             }
         }
         $pdo->commit();
@@ -59,9 +61,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     end_of_post_try_block:;
 }
 
-
 // Recupera i dati per la visualizzazione
+$dependencies = []; // Mappa: Figlio -> [Genitori]
+$required_by = []; // NUOVA MAPPA: Genitore -> [Figli]
 try {
+    // Recupero utente, pagine, permessi correnti (invariato)...
     $sql_user = "SELECT Nome, Cognome, is_Superuser FROM Utenti WHERE ID = :id";
     $stmt_user = $pdo->prepare($sql_user);
     $stmt_user->execute([':id' => $utente_id]);
@@ -70,7 +74,6 @@ try {
     if (!$utente) { die("Utente non trovato."); }
     $is_superuser_da_modificare = $utente['is_Superuser'];
 
-    // MODIFICATO: La query ora recupera anche Nome_Visuallizzato
     $sql_pagine = "SELECT ID, Nome_Pagina, Nome_Visuallizzato, Gruppo FROM Pagine ORDER BY Gruppo, ID";
     $stmt_pagine = $pdo->query($sql_pagine);
     $pagine = $stmt_pagine->fetchAll(PDO::FETCH_ASSOC);
@@ -89,9 +92,36 @@ try {
     $stmt_permessi_correnti->execute([':utente_id' => $utente_id]);
     $permessi_correnti = $stmt_permessi_correnti->fetchAll(PDO::FETCH_COLUMN, 0);
 
+    // Recupera le dipendenze e costruisce entrambe le mappe
+    $sql_dependencies = "SELECT Permesso_ID, Richiede_Permesso_ID FROM Permessi_Dipendenze";
+    $stmt_dependencies = $pdo->query($sql_dependencies);
+    $deps_raw = $stmt_dependencies->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach($deps_raw as $dep) {
+        $child_id = $dep['Permesso_ID'];
+        $parent_id = $dep['Richiede_Permesso_ID'];
+
+        // Mappa normale (Figlio -> Genitori)
+        if (!isset($dependencies[$child_id])) {
+            $dependencies[$child_id] = [];
+        }
+        $dependencies[$child_id][] = $parent_id;
+
+        // NUOVO: Mappa inversa (Genitore -> Figli)
+        if (!isset($required_by[$parent_id])) {
+            $required_by[$parent_id] = [];
+        }
+        $required_by[$parent_id][] = $child_id;
+        // FINE NUOVA MAPPA
+    }
+
 } catch (PDOException $e) {
     die("Errore di recupero dati: " . $e->getMessage());
 }
+
+// Converti entrambe le mappe in JSON per JavaScript
+$dependencies_json = json_encode($dependencies);
+$required_by_json = json_encode($required_by); // NUOVO JSON
 ?>
 <!DOCTYPE html>
 <html lang="it">
@@ -114,7 +144,7 @@ try {
     <?php if ($message): ?>
         <p class="message <?= strpos($message, 'successo') !== false ? 'success' : 'error' ?>"><?= $message ?></p>
     <?php endif; ?>
-    
+
     <form action="modifica_permessi.php?id=<?= $utente_id ?>" method="POST">
         <?php if ($is_superuser_loggato): ?>
         <div class="form-group checkbox-group">
@@ -123,7 +153,7 @@ try {
         </div>
         <hr style="margin-bottom: 25px;">
         <?php endif; ?>
-        
+
         <div class="permessi-container">
             <?php foreach ($pagine_raggruppate as $gruppo_nome => $permessi_nel_gruppo): ?>
                 <fieldset class="permessi-group">
@@ -132,6 +162,7 @@ try {
                         <?php foreach ($permessi_nel_gruppo as $pagina): ?>
                             <div class="permesso-item">
                                 <input type="checkbox"
+                                       class="permission-checkbox"
                                        id="permesso-<?= $pagina['ID'] ?>"
                                        name="permessi[]"
                                        value="<?= $pagina['ID'] ?>"
@@ -145,12 +176,78 @@ try {
                 </fieldset>
             <?php endforeach; ?>
         </div>
-        
+
         <button type="submit" style="margin-top: 25px;">Salva Permessi</button>
     </form>
-    
+
     <a href="gestione_utenti.php" class="back-link">Torna alla Gestione Utenti</a>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Carica entrambe le mappe delle dipendenze
+    const dependencies = <?= $dependencies_json ?>; // Mappa: Figlio -> [Genitori]
+    const requiredBy = <?= $required_by_json ?>;   // NUOVA MAPPA: Genitore -> [Figli]
+    const checkboxes = document.querySelectorAll('.permission-checkbox');
+
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const permissionId = this.value;
+
+            // Logica per SELEZIONE AUTOMATICA (invariata)
+            if (this.checked) {
+                if (dependencies[permissionId]) {
+                    dependencies[permissionId].forEach(requiredId => {
+                        const requiredCheckbox = document.getElementById('permesso-' + requiredId);
+                        if (requiredCheckbox && !requiredCheckbox.checked) {
+                            requiredCheckbox.checked = true;
+                            requiredCheckbox.dispatchEvent(new Event('change'));
+                        }
+                    });
+                }
+            }
+            // NUOVA LOGICA per DESELEZIONE AUTOMATICA
+            else {
+                // Controlla se questo permesso è richiesto da altri (è un genitore)
+                if (requiredBy[permissionId]) {
+                    // Itera su tutti i permessi figli che dipendono da questo
+                    requiredBy[permissionId].forEach(childId => {
+                        // Trova la checkbox del figlio
+                        const childCheckbox = document.getElementById('permesso-' + childId);
+                        // Se esiste ed è attualmente selezionata, deselezionala
+                        if (childCheckbox && childCheckbox.checked) {
+                            childCheckbox.checked = false;
+                            // Triggera l'evento 'change' anche sul figlio deselezionato
+                            // per gestire deselezioni a cascata
+                            childCheckbox.dispatchEvent(new Event('change'));
+                        }
+                    });
+                }
+            }
+        });
+    });
+
+     // Logica Superuser (invariata)
+     const superuserCheckbox = document.getElementById('is_superuser_mod');
+     const otherCheckboxes = document.querySelectorAll('.permission-checkbox');
+     function togglePermissions() {
+         const isDisabled = superuserCheckbox ? superuserCheckbox.checked : false;
+         otherCheckboxes.forEach(cb => {
+             cb.disabled = isDisabled;
+             if (isDisabled) {
+                 cb.checked = true; // Se è superuser, seleziona tutto (o deseleziona a seconda della tua logica preferita)
+             }
+         });
+         document.querySelectorAll('.permessi-group').forEach(group => {
+             group.style.opacity = isDisabled ? 0.5 : 1;
+         });
+     }
+     if (superuserCheckbox) {
+         superuserCheckbox.addEventListener('change', togglePermissions);
+         togglePermissions(); // Applica lo stato iniziale
+     }
+});
+</script>
 
 <?php require_once '../PHP/footer.php'; ?>
 

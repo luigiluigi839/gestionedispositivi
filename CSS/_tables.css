@@ -175,9 +175,9 @@ th[data-sortable] {
     padding-right: 25px; /* Spazio per l'icona della freccia */
 }
 
-/* Freccia di ordinamento (inizialmente nascosta) */
+/* Freccia di ordinamento (MODIFICATO: inizialmente nascosta) */
 th[data-sortable]::after {
-    content: '';
+    content: ''; /* Inizialmente vuoto */
     position: absolute;
     right: 10px;
     top: 50%;
@@ -186,46 +186,72 @@ th[data-sortable]::after {
     height: 0;
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
-    opacity: 0;
-    transition: opacity 0.2s ease;
+    opacity: 0.5; /* Opacità ridotta per la freccia non attiva */
 }
 
-/* Freccia verso l'alto per l'ordinamento ascendente */
+/* Mostra freccia doppia solo al passaggio del mouse SE non ordinata */
+th[data-sortable]:not(.sort-asc):not(.sort-desc):hover::after {
+     content: ' \2195'; /* Freccia su/giù */
+     opacity: 0.5;
+     /* Rimuovi bordi che potrebbero interferire */
+     border-top: none;
+     border-bottom: none;
+}
+
+
+/* Freccia verso l'alto per l'ordinamento ascendente (MODIFICATO: Usa content) */
 th.sort-asc::after {
-    border-bottom: 5px solid #000;
+    content: ' \2191'; /* Freccia su */
     opacity: 1;
+    border-top: none;
+    border-bottom: none;
 }
 
-/* Freccia verso il basso per l'ordinamento discendente */
+/* Freccia verso il basso per l'ordinamento discendente (MODIFICATO: Usa content) */
 th.sort-desc::after {
-    border-top: 5px solid #000;
+    content: ' \2193'; /* Freccia giù */
     opacity: 1;
+    border-top: none;
+    border-bottom: none;
 }
 
 
 /* Stili per i badge di stato (riutilizzati dalla dashboard e ricondizionamenti) */
 .status-badge {
     display: inline-block;
-    padding: 4px 8px;
+    padding: 4px 8px; /* Leggermente ridotto per compattezza */
     border-radius: 12px;
-    font-size: 12px;
+    font-size: 11px; /* Leggermente ridotto */
     font-weight: bold;
     color: white;
     text-transform: uppercase;
+    line-height: 1.2; /* Aggiunto per migliorare leggibilità */
+    text-align: center; /* Centra testo se va a capo */
+    white-space: normal; /* Permette al testo di andare a capo */
+    min-width: 80px; /* Larghezza minima per evitare troppo schiacciamento */
 }
+
 
 /* Colori specifici per gli stati del ricondizionamento */
-.status-in-corso { 
-    background-color: #ffc107; 
-    color: #333; 
+.status-in-corso {
+    background-color: #ffc107;
+    color: #333;
 }
-.status-completato { 
-    background-color: #28a745; 
+.status-completato {
+    background-color: #28a745;
 }
-.status-demolito { 
-    background-color: #dc3545; 
+.status-demolito {
+    background-color: #dc3545;
 }
-.status-non-iniziato { 
-    background-color: #6c757d; 
+.status-non-iniziato { /* Probabilmente non usato, ma lo teniamo */
+    background-color: #6c757d;
 }
 
+
+.status-da-verificare-ricondizionare {
+    background-color: #007bff; /* Colore blu primario */
+    color: white;
+}
+
+.filter-group { display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-group > div { flex: 1; min-width: 150px; }

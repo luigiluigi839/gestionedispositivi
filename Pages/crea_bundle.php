@@ -15,26 +15,43 @@ $message = $_SESSION['bundle_message'] ?? null;
 $status = $_SESSION['bundle_status'] ?? null;
 unset($_SESSION['bundle_message'], $_SESSION['bundle_status']);
 
+$main_devices_available = [];
+$accessories_available = [];
+
 try {
-    // MODIFICATO: La query ora recupera tutti i dispositivi disponibili, senza separarli in anticipo.
-    // Vengono esclusi solo quelli già presenti in un qualsiasi bundle.
-    $sql = "SELECT d.Seriale_Inrete, d.Seriale, ma.Nome AS Marca, mo.Nome AS Modello, t.Nome AS TipologiaNome
-            FROM Dispositivi d
-            JOIN Modelli mo ON d.ModelloID = mo.ID
-            JOIN Marche ma ON d.MarcaID = ma.ID
-            JOIN Tipologie t ON mo.Tipologia = t.ID
-            WHERE 
-                d.Seriale_Inrete NOT IN (SELECT Accessorio_Seriale FROM Bundle_Dispositivi)
-                AND
-                d.Seriale_Inrete NOT IN (SELECT CorpoMacchina_Seriale FROM Bundle_Dispositivi)";
-    
-    $stmt = $pdo->query($sql);
-    $all_devices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // MODIFICATO: Aggiunto t.Nome AS TipologiaNome a entrambe le query
+
+    // 1. Recupera TUTTI i dispositivi disponibili (corpi macchina E accessori) per il campo principale.
+    $sql_main = "SELECT d.Seriale_Inrete, d.Seriale, ma.Nome AS Marca, mo.Nome AS Modello, t.Nome AS TipologiaNome
+                 FROM Dispositivi d
+                 JOIN Modelli mo ON d.ModelloID = mo.ID
+                 JOIN Marche ma ON d.MarcaID = ma.ID
+                 JOIN Tipologie t ON mo.Tipologia = t.ID
+                 WHERE
+                     d.Ubicazione != 9
+                     AND d.Seriale_Inrete NOT IN (SELECT Accessorio_Seriale FROM Bundle_Dispositivi)
+                     AND d.Seriale_Inrete NOT IN (SELECT CorpoMacchina_Seriale FROM Bundle_Dispositivi)";
+    $stmt_main = $pdo->query($sql_main);
+    $main_devices_available = $stmt_main->fetchAll(PDO::FETCH_ASSOC);
+
+    // 2. Recupera SOLO gli ACCESSORI disponibili per il campo di aggiunta accessori.
+    $sql_accessories = "SELECT d.Seriale_Inrete, d.Seriale, ma.Nome AS Marca, mo.Nome AS Modello, t.Nome AS TipologiaNome
+                        FROM Dispositivi d
+                        JOIN Modelli mo ON d.ModelloID = mo.ID
+                        JOIN Marche ma ON d.MarcaID = ma.ID
+                        JOIN Tipologie t ON mo.Tipologia = t.ID
+                        WHERE
+                            d.Ubicazione != 9
+                            AND t.Nome LIKE 'Accessorio%'
+                            AND d.Seriale_Inrete NOT IN (SELECT Accessorio_Seriale FROM Bundle_Dispositivi)
+                            AND d.Seriale_Inrete NOT IN (SELECT CorpoMacchina_Seriale FROM Bundle_Dispositivi)";
+    $stmt_accessories = $pdo->query($sql_accessories);
+    $accessories_available = $stmt_accessories->fetchAll(PDO::FETCH_ASSOC);
+
 
 } catch (PDOException $e) {
     $message = "Errore DB: " . $e->getMessage();
     $status = 'error';
-    $all_devices = [];
 }
 ?>
 <!DOCTYPE html>
@@ -63,7 +80,7 @@ try {
 
     <form action="../PHP/salva_bundle.php" method="POST" id="bundle-form">
         <div class="form-group">
-            <label for="search-main-device">1. Seleziona il Dispositivo o Accessorio Principale</label>
+            <label for="search-main-device">1. Seleziona il Dispositivo Principale</label>
             <input type="text" id="search-main-device" placeholder="Cerca per seriale, marca o modello..." autocomplete="off">
             <input type="hidden" name="corpo_macchina_seriale" id="main-device-serial">
             <div id="results-main-device" class="search-results-list hidden"></div>
@@ -86,7 +103,11 @@ try {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const allDevices = <?= json_encode(array_values($all_devices)) ?>;
+    const mainDevices = <?= json_encode(array_values($main_devices_available)) ?>;
+    const accessories = <?= json_encode(array_values($accessories_available)) ?>;
+
+    // NUOVO: Variabile per memorizzare i dati del dispositivo principale selezionato
+    let selectedMainDeviceObject = null;
 
     const searchMain = document.getElementById('search-main-device');
     const hiddenMain = document.getElementById('main-device-serial');
@@ -100,41 +121,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitButton = document.getElementById('submit-bundle');
     const form = document.getElementById('bundle-form');
 
-    function handleSearch(input, data, resultsContainer, onSelect, excludeSerials = []) {
-        input.addEventListener('input', function() {
-            const query = this.value.toLowerCase().trim();
-            resultsContainer.innerHTML = '';
-            if (query.length < 2) {
-                resultsContainer.classList.add('hidden');
-                return;
-            }
-            
-            const excludeSet = new Set(excludeSerials);
-            const filtered = data.filter(d => 
-                !excludeSet.has(String(d.Seriale_Inrete)) && (
-                    (String(d.Seriale_Inrete).toLowerCase().includes(query)) ||
-                    (d.Seriale || '').toLowerCase().includes(query) ||
-                    (d.Marca || '').toLowerCase().includes(query) ||
-                    (d.Modello || '').toLowerCase().includes(query)
-                )
-            );
-            
-            if (filtered.length > 0) {
-                filtered.slice(0, 10).forEach(device => {
-                    const item = document.createElement('div');
-                    item.className = 'search-result-item';
-                    item.textContent = `${device.Marca} ${device.Modello} (S/N: ${device.Seriale})`;
-                    item.addEventListener('click', () => onSelect(device));
-                    resultsContainer.appendChild(item);
-                });
-            } else {
-                resultsContainer.innerHTML = '<div class="search-result-item no-results">Nessun risultato</div>';
-            }
-            resultsContainer.classList.remove('hidden');
-        });
+    function performSearch(query, data, excludeSerials = []) {
+        const excludeSet = new Set(excludeSerials);
+        return data.filter(d => 
+            !excludeSet.has(String(d.Seriale_Inrete)) && (
+                (String(d.Seriale_Inrete).toLowerCase().includes(query)) ||
+                (d.Seriale || '').toLowerCase().includes(query) ||
+                (d.Marca || '').toLowerCase().includes(query) ||
+                (d.Modello || '').toLowerCase().includes(query)
+            )
+        );
     }
 
-    // Ricerca per Dispositivo Principale
     searchMain.addEventListener('input', () => {
         const query = searchMain.value.toLowerCase().trim();
         resultsMain.innerHTML = '';
@@ -142,22 +140,40 @@ document.addEventListener('DOMContentLoaded', function() {
             resultsMain.classList.add('hidden');
             return;
         }
-        handleSearch(searchMain, allDevices, resultsMain, selectMainDevice);
+        const filtered = performSearch(query, mainDevices);
+        
+        if (filtered.length > 0) {
+            filtered.slice(0, 10).forEach(device => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.textContent = `${device.Marca} ${device.Modello} (S/N: ${device.Seriale})`;
+                item.addEventListener('click', () => selectMainDevice(device));
+                resultsMain.appendChild(item);
+            });
+        } else {
+            resultsMain.innerHTML = '<div class="search-result-item no-results">Nessun risultato</div>';
+        }
+        resultsMain.classList.remove('hidden');
     });
 
     function selectMainDevice(device) {
+        // NUOVO: Salva l'oggetto completo del dispositivo principale
+        selectedMainDeviceObject = device;
+
         const displayText = `<span>${device.Marca} ${device.Modello} (S/N: ${device.Seriale})</span> <span class="cancel-selection" title="Annulla selezione">✖</span>`;
         hiddenMain.value = device.Seriale_Inrete;
         selectedMainDiv.innerHTML = displayText;
         selectedMainDiv.style.display = 'flex';
         resultsMain.classList.add('hidden');
-        searchMain.style.display = 'none'; // Nasconde la barra di ricerca
+        searchMain.style.display = 'none';
         checkFormValidity();
     }
 
-    // Annullamento della selezione del dispositivo principale
     selectedMainDiv.addEventListener('click', function(e) {
         if (e.target.classList.contains('cancel-selection')) {
+            // NUOVO: Resetta l'oggetto del dispositivo principale
+            selectedMainDeviceObject = null;
+            
             hiddenMain.value = '';
             selectedMainDiv.style.display = 'none';
             searchMain.value = '';
@@ -167,19 +183,77 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Ricerca per Accessori
     searchAccessorio.addEventListener('input', () => {
+        const query = searchAccessorio.value.toLowerCase().trim();
+        resultsAccessorio.innerHTML = '';
+        if (query.length < 2) {
+            resultsAccessorio.classList.add('hidden');
+            return;
+        }
+        
         const addedSerials = Array.from(accessoryListDiv.querySelectorAll('input[name="accessori[]"]')).map(input => input.value);
         const mainDeviceSerial = hiddenMain.value;
         const excludeList = mainDeviceSerial ? [...addedSerials, mainDeviceSerial] : addedSerials;
-        handleSearch(searchAccessorio, allDevices, resultsAccessorio, addAccessoryToList, excludeList);
-    });
+        
+        const filtered = performSearch(query, accessories, excludeList);
 
-    function addAccessoryToList(device) {
+        if (filtered.length > 0) {
+            filtered.slice(0, 10).forEach(device => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.textContent = `${device.Marca} ${device.Modello} (S/N: ${device.Seriale})`;
+                item.addEventListener('click', () => addAccessoryToList(device));
+                resultsAccessorio.appendChild(item);
+            });
+        } else {
+            resultsAccessorio.innerHTML = '<div class="search-result-item no-results">Nessun risultato</div>';
+        }
+        resultsAccessorio.classList.remove('hidden');
+    });
+    
+    // NUOVO: Funzione per estrarre la "famiglia" del dispositivo (Office/Production)
+    function getDeviceFamily(tipologiaNome) {
+        if (!tipologiaNome) return 'Sconosciuta';
+        if (tipologiaNome.toLowerCase().includes('production')) return 'Production';
+        if (tipologiaNome.toLowerCase().includes('office')) return 'Office';
+        return 'Altro';
+    }
+
+    // MODIFICATO: Logica di aggiunta accessorio con controllo e alert
+    function addAccessoryToList(accessoryDevice) {
+        if (!selectedMainDeviceObject) {
+            alert("Errore: Seleziona prima un dispositivo principale.");
+            return;
+        }
+
+        const mainBrand = selectedMainDeviceObject.Marca;
+        const accessoryBrand = accessoryDevice.Marca;
+        
+        const mainFamily = getDeviceFamily(selectedMainDeviceObject.TipologiaNome);
+        const accessoryFamily = getDeviceFamily(accessoryDevice.TipologiaNome);
+        
+        let warnings = [];
+        if (mainBrand !== accessoryBrand) {
+            warnings.push("le marche sono diverse ('" + mainBrand + "' vs '" + accessoryBrand + "')");
+        }
+        if (mainFamily !== 'Sconosciuta' && accessoryFamily !== 'Sconosciuta' && mainFamily !== accessoryFamily) {
+            warnings.push("stai mischiando dispositivi di tipo '" + mainFamily + "' e '" + accessoryFamily + "'");
+        }
+        
+        if (warnings.length > 0) {
+            const message = "ATTENZIONE: " + warnings.join(" e ") + ".\n\nVuoi continuare comunque?";
+            if (!confirm(message)) {
+                searchAccessorio.value = '';
+                resultsAccessorio.classList.add('hidden');
+                return; // Interrompe l'aggiunta se l'utente annulla
+            }
+        }
+
+        // Se l'utente conferma o non ci sono avvisi, procede con l'aggiunta
         const listItem = document.createElement('div');
         listItem.className = 'accessory-list-item';
         const text = document.createElement('span');
-        text.textContent = `${device.Marca} ${device.Modello} (S/N: ${device.Seriale})`;
+        text.textContent = `${accessoryDevice.Marca} ${accessoryDevice.Modello} (S/N: ${accessoryDevice.Seriale})`;
         const removeBtn = document.createElement('span');
         removeBtn.className = 'remove-btn';
         removeBtn.textContent = '✖ Rimuovi';
@@ -190,7 +264,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const hiddenInput = document.createElement('input');
         hiddenInput.type = 'hidden';
         hiddenInput.name = 'accessori[]';
-        hiddenInput.value = device.Seriale_Inrete;
+        hiddenInput.value = accessoryDevice.Seriale_Inrete;
         listItem.appendChild(text);
         listItem.appendChild(removeBtn);
         listItem.appendChild(hiddenInput);
